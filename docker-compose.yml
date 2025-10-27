@@ -1,0 +1,82 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: postgres:latest
+    container_name: provenance_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: provenance_user
+      POSTGRES_PASSWORD: provenance_pass
+      POSTGRES_DB: provenance_db
+    ports:
+      - 5432:5432
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: provenance_kafka
+    environment:
+      - KAFKA_ENABLE_KRAFT=yes
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092, CONTROLLER://:9093
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_CFG_LOG_DIRS=/tmp/kafka-combined-logs
+    ports:
+      - 9092:9092
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:32181
+
+  init-kafka:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # Wait for Kafka to be ready
+      echo 'Waiting for Kafka to be ready...'
+      cub kafka-ready -b kafka:29092 1 60
+      
+      # Create topics
+      echo 'Creating Kafka topics...'
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic raw-data-stream
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 3 --replication-factor 1 --topic processed-data-stream
+      kafka-topics --create --if-not-exists --bootstrap-server kafka:29092 --partitions 2 --replication-factor 1 --topic provenance-events
+      
+      echo 'Topics created successfully'
+      kafka-topics --list --bootstrap-server kafka:29092
+      "
+
+  dashboard:
+    build: ./dashboard
+    container_name: provenance_dashboard
+    ports:
+      - "8501:8501"
+    depends_on:
+      - postgres
+    environment:
+      - DATABASE_URL=postgresql://provenance_user:provenance_pass@postgres:5432/provenance_db
+    command: streamlit run app.py --server.port=8501 --server.address=0.0.0.0
+
+volumes:
+  pg_data:
+  kafka_data:

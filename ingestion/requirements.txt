@@ -1,0 +1,23 @@
+kafka-python==latest
+confluent-kafka==latest
+
+# Data Generation
+faker==latest
+mimesis==latest
+
+# API
+fastapi==latest
+uvicorn[standard]==latest
+pydantic==latest
+
+# Storage
+boto3==latest
+python-dotenv==latest
+
+# Utilities
+python-dateutil==latest
+pytz==latest
+uuid==latest
+
+# Monitoring
+prometheus-client==latest

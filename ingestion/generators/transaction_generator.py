@@ -5,7 +5,6 @@ from faker import Faker
 import random
 
 class TransactionGenerator:
-    #Generates transaction data for ingestion
     def __init__(self, seed: int = 42):
         self.fake = Faker()
         Faker.seed(seed)
@@ -27,10 +26,10 @@ class TransactionGenerator:
         transaction = {
             "transaction_id": transaction_id,
             "user_id": str(uuid.uuid4()),
-            "merchants": random.choice(self.merchants),
+            "merchants": random.choice(merchants),
             "amount": amount,
             "timestamp": timestamp.isoformat(),
-            "payment_method": random.choice(self.payment_methods),
+            "payment_method": random.choice(payment_methods),
             "status": random.choice(['completed', 'pending', 'failed']),
             "location": {
                 "city": self.fake.city(),
